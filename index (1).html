@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Traslados de pacientes</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--bg:#eef2f4;--ink:#15232b;--card:#fff;--line:#cfd8dd;--ent:#1769aa;--sal:#c4511a;--ok:#1f8a4c;--mut:#5b6b74}
+@media(prefers-color-scheme:dark){:root{--bg:#10181c;--ink:#e8eef1;--card:#1a262c;--line:#33444c;--mut:#9fb0b8;--ent:#5aaaf0;--sal:#f08a5a;--ok:#4cc27f}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,"Segoe UI",Roboto,sans-serif}
+header{display:flex;gap:6px;padding:10px;position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:1px solid var(--line)}
+header button{flex:1;padding:12px 6px;font-size:16px;font-weight:600;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px}
+header button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+main{max-width:760px;margin:auto;padding:10px}section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 10px}
+h2{margin:4px 0 8px;font-size:19px}label{display:block;font-size:14px;color:var(--mut);margin:8px 0 2px}
+input,select,textarea{width:100%;padding:11px;font-size:16px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.row{display:flex;gap:8px}.row>*{flex:1}.pt{display:flex;gap:8px;align-items:center;margin-top:6px}.pt b{width:24px;text-align:center}
+button.b{padding:12px 14px;font-size:16px;font-weight:600;border:0;border-radius:10px;background:var(--ink);color:var(--bg);cursor:pointer}
+button.g{background:transparent;color:var(--ink);border:1px solid var(--line)}button.r{background:#b3261e;color:#fff}
+.tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:13px;font-weight:700;color:#fff}.entrada{background:var(--ent)}.salida{background:var(--sal)}
+.tag.gr{background:#7a4cc2}.mut{color:var(--mut);font-size:14px}.hl{border-left:5px solid #7a4cc2}
+#map{height:42vh;min-height:260px;border-radius:12px;border:1px solid var(--line);margin-bottom:10px}
+.big{font-size:30px;font-weight:800;line-height:1.15;margin:4px 0}.dir{font-size:22px;font-weight:600}
+.act{display:flex;gap:8px;margin-top:12px}.act a,.act button{flex:1;text-align:center;padding:18px 8px;font-size:22px;font-weight:800;border-radius:12px;border:0;text-decoration:none;color:#fff;cursor:pointer}
+.nav{background:var(--ent)}.done{background:var(--ok)}
+.step{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:15px}.step.x{opacity:.45;text-decoration:line-through}
+#lg,#hn{display:none}body.lg #lg{display:block}body.lg header,body.lg main{display:none}
+body.drv header button:not(#sal){display:none}body.drv #sc,body.drv #fd{display:none}body.drv #hn{display:block}
+header #sal{flex:0 0 auto;background:transparent}
+:focus-visible{outline:3px solid #f2a900;outline-offset:2px}
+</style></head><body>
+<div id="lg"><div class="card" style="max-width:520px;margin:20px auto"><h2>¿Quién sos?</h2><p class="mut">Elegí tu nombre para ver tu recorrido de hoy.</p><div id="lc"></div>
+<button class="b g" id="la" style="width:100%;margin-top:14px;font-size:17px">Entrar como administrador</button>
+<button class="b g" id="li" style="width:100%;margin-top:8px;font-size:15px">Cargar datos enviados por el administrador</button></div></div>
+<header><button data-t="pac" class="on">Pacientes</button><button data-t="cho">Ver chofer</button><button data-t="aju">Ajustes</button><button id="sal">Salir</button></header>
+<main>
+<section id="pac" class="on">
+ <div class="card"><h2 id="ft">Cargar paciente</h2>
+  <label>Nombre</label><input id="n" placeholder="Nombre y apellido">
+  <div class="row"><div><label>Fecha</label><input type="date" id="f"></div><div><label>Hora</label><input type="time" id="h"></div></div>
+  <div class="row"><div><label>Tipo</label><select id="t"><option value="entrada">Entrada (va al centro)</option><option value="salida">Salida (vuelve del centro)</option></select></div>
+  <div><label>Chofer</label><select id="c"></select></div></div>
+  <label>Recorrido</label><small class="mut" id="hint"></small><div id="pts"></div>
+  <div class="act" style="margin-top:8px"><button class="b g" id="ap" style="padding:10px;font-size:16px">+ Agregar parada</button></div>
+  <label>Notas (silla de ruedas, piso, timbre...)</label><textarea id="no" rows="2"></textarea>
+  <div class="act"><button class="b" id="gu" style="font-size:18px">Guardar paciente</button><button class="b g" id="ca" style="display:none;font-size:18px">Cancelar</button></div>
+  <div class="mut" id="st" style="margin-top:6px"></div></div>
+ <div class="card"><div class="row"><div><label>Ver día</label><input type="date" id="fl"></div></div><div id="lis"></div></div>
+ <div class="card"><h2>Plan del día por chofer</h2><div id="plan"></div></div>
+</section>
+<section id="cho">
+ <h2 id="hn"></h2>
+ <div class="row" style="margin-bottom:8px"><select id="sc"></select><input type="date" id="fd"></div>
+ <div id="map"></div><div id="eta" class="mut" style="margin:-4px 0 8px"></div><div id="cur"></div>
+</section>
+<section id="aju"><div class="card"><h2>Ajustes</h2>
+ <label>Choferes (separados por coma)</label><input id="ac">
+ <label>Clave de administrador (opcional)</label><input id="pin" type="password" autocomplete="off">
+ <div class="row"><div><label>Pacientes máx. por vehículo</label><input type="number" id="cap" min="1"></div>
+ <div><label>Diferencia horaria máx. (min)</label><input type="number" id="vent" min="0"></div>
+ <div><label>Distancia máx. entre puntos (km)</label><input type="number" id="dist" min="0" step=".5"></div></div>
+ <div class="act"><button class="b" id="sa" style="font-size:18px">Guardar ajustes</button></div></div>
+ <div class="card"><h2>Datos</h2><p class="mut">Los datos se guardan en este dispositivo. Para pasarlos al celular del chofer, exportá y cargá el archivo allá.</p>
+ <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="te" style="width:auto"> Modo prueba: si una dirección no se encuentra, usar un punto de ejemplo</label>
+ <div class="act"><button class="b g" id="dm" style="font-size:16px">Cargar ejemplo</button></div>
+ <div class="act"><button class="b g" id="ex" style="font-size:16px">Exportar</button><button class="b g" id="im" style="font-size:16px">Importar</button><button class="b g" id="rs" style="font-size:16px">Reiniciar avances</button></div>
+ <input type="file" id="fi" accept=".json" hidden></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s),e=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+let S={p:[],c:['Chofer 1'],cap:3,vent:40,dist:3,hecho:{},ch:''};
+try{Object.assign(S,JSON.parse(localStorage.getItem('traslados')||'{}'))}catch(x){}
+const sv=()=>{try{localStorage.setItem('traslados',JSON.stringify(S))}catch(x){}};
+const hoy=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const tm=h=>{const[a,b]=(h||'0:0').split(':');return +a*60+ +b};
+const hav=(a,b)=>{const r=Math.PI/180,x=Math.sin((b.lat-a.lat)*r/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin((b.lng-a.lng)*r/2)**2;return 12742*Math.asin(Math.sqrt(x))};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let edit=null,map,mk,rl,um,POS,tgt,lastR=0;
+
+/* ---- pestañas ---- */
+document.querySelectorAll('header button').forEach(b=>b.onclick=()=>show(b.dataset.t));
+function show(t){document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id==t));
+ document.querySelectorAll('header button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));
+ if(t=='cho'){if(!map)initMap();renderCho();setTimeout(()=>map.invalidateSize(),50)}else renderAll()}
+
+/* ---- formulario ---- */
+function addPt(v=''){const d=document.createElement('div');d.className='pt';
+ d.innerHTML=`<b>${String.fromCharCode(65+$('#pts').children.length)}</b><input placeholder="Calle y altura" value="${e(v)}">`;$('#pts').append(d)}
+function hint(){$('#hint').textContent=$('#t').value=='entrada'?'A = donde lo buscás. La última letra = adonde lo llevás (ej. el centro).':'A = donde lo retirás (ej. el centro). La última letra = adonde hay que dejarlo.'}
+$('#t').onchange=hint;$('#ap').onclick=()=>addPt();
+function resetForm(){edit=null;$('#ft').textContent='Cargar paciente';['n','no','h'].forEach(i=>$('#'+i).value='');$('#pts').innerHTML='';addPt();addPt();$('#ca').style.display='none';hint()}
+$('#ca').onclick=resetForm;
+async function geo(q){
+ const u='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar&q='+encodeURIComponent(/rosario/i.test(q)?q:q+', Rosario, Santa Fe');
+ const r=await (await fetch(u)).json();return r[0]?{lat:+r[0].lat,lng:+r[0].lon}:null}
+$('#gu').onclick=async()=>{
+ const n=$('#n').value.trim(),h=$('#h').value,ds=[...$('#pts input')].map(i=>i.value.trim()).filter(Boolean);
+ if(!n||!h||ds.length<2){$('#st').textContent='Completá nombre, hora y al menos dos direcciones (A y B).';return}
+ const old=edit?S.p.find(p=>p.id==edit):null,pts=[];$('#gu').disabled=true;
+ for(const d of ds){const k=old&&old.pts.find(x=>x.d==d&&x.lat);let g=k||null;
+  if(!g){$('#st').textContent='Buscando en el mapa: '+d+'…';try{g=await geo(d);await sleep(1100)}catch(x){g=null}if(!g&&S.test)g=fake(d)}
+  if(!g){$('#st').textContent='No encontré "'+d+'". Probá con calle, altura y barrio.';$('#gu').disabled=false;return}
+  pts.push({d,lat:g.lat,lng:g.lng})}
+ const p={id:edit||Date.now(),n,h,f:$('#f').value,t:$('#t').value,c:$('#c').value,no:$('#no').value,pts};
+ S.p=S.p.filter(x=>x.id!=p.id).concat(p);sv();$('#gu').disabled=false;$('#st').textContent='Guardado.';resetForm();renderAll()};
+function editP(id){const p=S.p.find(x=>x.id==id);edit=id;$('#ft').textContent='Editar paciente';
+ $('#n').value=p.n;$('#h').value=p.h;$('#f').value=p.f;$('#t').value=p.t;$('#c').value=p.c;$('#no').value=p.no;
+ $('#pts').innerHTML='';p.pts.forEach(x=>addPt(x.d));$('#ca').style.display='';hint();scrollTo(0,0)}
+function delP(id){if(confirm('¿Borrar este paciente?')){S.p=S.p.filter(x=>x.id!=id);sv();renderAll()}}
+
+/* ---- plan: agrupa viajes y ordena paradas ---- */
+function plan(ch,f){
+ const ps=S.p.filter(p=>p.f==f&&p.c==ch).sort((a,b)=>tm(a.h)-tm(b.h)),used=new Set(),trips=[],last=p=>p.pts[p.pts.length-1];
+ for(const p of ps){if(used.has(p.id))continue;const g=[p];used.add(p.id);
+  for(const q of ps){if(used.has(q.id)||g.length>=S.cap)continue;
+   if(Math.abs(tm(q.h)-tm(p.h))<=S.vent&&hav(q.pts[0],p.pts[0])<=S.dist&&hav(last(q),last(p))<=S.dist){g.push(q);used.add(q.id)}}
+  let pos=p.pts[0],pend=[...g],ord=[],st=[];
+  while(pend.length){pend.sort((a,b)=>hav(pos,a.pts[0])-hav(pos,b.pts[0]));const n=pend.shift();ord.push(n);pos=n.pts[0];st.push({k:n.id+':0',p:n,i:0,t:'retira'})}
+  const rest=[...ord];
+  while(rest.length){rest.sort((a,b)=>hav(pos,a.pts[1])-hav(pos,b.pts[1]));const n=rest.shift();
+   for(let i=1;i<n.pts.length;i++){st.push({k:n.id+':'+i,p:n,i,t:i==n.pts.length-1?'deja':'para'});pos=n.pts[i]}}
+  trips.push({g,st})}
+ return{trips,steps:trips.flatMap(t=>t.st)}}
+const V={retira:'Buscar a',para:'Parada con',deja:'Dejar a'};
+
+/* ---- render administrador ---- */
+function renderAll(){
+ $('#c').innerHTML=S.c.map(c=>`<option>${e(c)}</option>`).join('');
+ const f=$('#fl').value||hoy(),ps=S.p.filter(p=>p.f==f).sort((a,b)=>tm(a.h)-tm(b.h));
+ $('#lis').innerHTML=ps.length?ps.map(p=>`<div class="card"><b>${e(p.h)}</b> ${e(p.n)} <span class="tag ${p.t}">${p.t=='entrada'?'Entrada':'Salida'}</span>
+  <div class="mut">${p.pts.map((x,i)=>String.fromCharCode(65+i)+': '+e(x.d)).join(' → ')}</div><div class="mut">Chofer: ${e(p.c)}${p.no?' · '+e(p.no):''}</div>
+  <div class="act" style="margin-top:6px"><button class="b g" style="padding:8px;font-size:15px" onclick="editP(${p.id})">Editar</button><button class="b g" style="padding:8px;font-size:15px" onclick="delP(${p.id})">Borrar</button></div></div>`).join(''):'<p class="mut">No hay pacientes para este día.</p>';
+ $('#plan').innerHTML=S.c.map(c=>{const {trips}=plan(c,f);if(!trips.length)return'';
+  return`<h3 style="margin:10px 0 4px">${e(c)}</h3>`+trips.map(t=>{const g=t.g,a=g[0];
+   const sug=g.length>1?`<div class="card hl"><span class="tag gr">Conviene viajar juntos</span> <b>${g.map(x=>e(x.n)).join(' + ')}</b>
+   <div class="mut">Retiros a ${g.slice(1).map(x=>hav(a.pts[0],x.pts[0]).toFixed(1)).join(' y ')} km entre sí, destinos a ${g.slice(1).map(x=>hav(a.pts[a.pts.length-1],x.pts[x.pts.length-1]).toFixed(1)).join(' y ')} km, horarios cercanos.</div>`:'<div class="card">';
+   return sug+t.st.map(s=>`<div class="step"><b>${e(s.p.h)}</b><span>${V[s.t]} ${e(s.p.n)} — ${e(s.p.pts[s.i].d)}</span></div>`).join('')+'</div>'}).join('')}).join('')||'<p class="mut">Cargá pacientes y asignales un chofer para ver el plan.</p>'}
+
+/* ---- vista del chofer ---- */
+function renderCho(){
+ $('#sc').innerHTML=S.c.map(c=>`<option ${c==S.ch?'selected':''}>${e(c)}</option>`).join('');S.ch=$('#sc').value;
+ const f=$('#fd').value||($('#fd').value=hoy()),{trips,steps}=plan(S.ch,f),pend=steps.filter(s=>!S.hecho[s.k]),el=$('#cur');
+ if(!steps.length){el.innerHTML='<div class="card big">No hay pacientes asignados para hoy.</div>';tgt=null;return}
+ if(!pend.length){el.innerHTML='<div class="card big" style="color:var(--ok)">¡Listo! Terminaste todos los traslados.</div>';tgt=null;return}
+ const s=pend[0],tr=trips.find(t=>t.st.includes(s)),pt=s.p.pts[s.i],ent=s.p.t=='entrada';
+ const abordo=tr.g.filter(p=>S.hecho[p.id+':0']&&!S.hecho[p.id+':'+(p.pts.length-1)]).map(p=>e(p.n));
+ const nx=pend.find(x=>x.t=='retira'&&!tr.st.includes(x));
+ el.innerHTML=`${tr.g.length>1?`<div class="card hl"><span class="tag gr">Viaje combinado</span> ${tr.g.map(p=>e(p.n)).join(' + ')}</div>`:''}
+ <div class="card"><span class="tag ${s.p.t}">${ent?'Entrada':'Salida'}</span> <span class="mut">${ent?'Turno a las ':'Retiro a las '}<b>${e(s.p.h)}</b></span>
+ <div class="mut" style="margin-top:6px">${V[s.t]}</div><div class="big">${e(s.p.n)}</div>
+ <div class="dir">${e(pt.d)}</div>${s.p.no?`<div class="mut">⚠ ${e(s.p.no)}</div>`:''}
+ ${abordo.length?`<div class="mut">A bordo: ${abordo.join(', ')}</div>`:''}
+ <div class="act"><a class="nav" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${pt.lat},${pt.lng}">Navegar</a><button class="done" id="ok">Listo</button></div></div>
+ ${nx?`<div class="card"><span class="mut">Después</span><div><b>${e(nx.p.h)}</b> ${e(nx.p.n)} — ${e(nx.p.pts[0].d)}</div></div>`:''}
+ <div class="card"><h2>Recorrido de hoy</h2>${steps.map(x=>`<div class="step ${S.hecho[x.k]?'x':''}"><b>${e(x.p.h)}</b><span>${V[x.t]} ${e(x.p.n)} — ${e(x.p.pts[x.i].d)}</span></div>`).join('')}</div>
+ <button class="b g" id="un" style="font-size:14px">Deshacer último paso</button>`;
+ $('#ok').onclick=()=>{S.hecho[s.k]=1;sv();renderCho()};
+ $('#un').onclick=()=>{const d=steps.filter(x=>S.hecho[x.k]).pop();if(d){delete S.hecho[d.k];sv();renderCho()}};
+ tgt={lat:pt.lat,lng:pt.lng};route()}
+
+/* ---- mapa y GPS ---- */
+function initMap(){map=L.map('map').setView([-32.95,-60.66],12);
+ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+ if(navigator.geolocation)navigator.geolocation.watchPosition(p=>{POS={lat:p.coords.latitude,lng:p.coords.longitude};
+  if(!um)um=L.circleMarker(POS,{radius:9,color:'#fff',weight:3,fillColor:'#1769aa',fillOpacity:1}).addTo(map);um.setLatLng(POS);
+  if(tgt&&Date.now()-lastR>30000)route()},()=>{$('#eta').textContent='Activá la ubicación del celular para ver tu posición y el recorrido.'},{enableHighAccuracy:true})}
+async function route(){
+ if(!map||!tgt)return;lastR=Date.now();if(mk)map.removeLayer(mk);mk=L.marker(tgt).addTo(map);
+ if(!POS){map.setView(tgt,15);return}
+ try{const r=await (await fetch(`https://router.project-osrm.org/route/v1/driving/${POS.lng},${POS.lat};${tgt.lng},${tgt.lat}?overview=full&geometries=geojson`)).json(),o=r.routes[0];
+  if(rl)map.removeLayer(rl);rl=L.geoJSON(o.geometry,{style:{color:'#1769aa',weight:6}}).addTo(map);map.fitBounds(rl.getBounds(),{padding:[30,30]});
+  $('#eta').textContent=`Faltan ${(o.distance/1000).toFixed(1)} km · unos ${Math.max(1,Math.round(o.duration/60))} min`}
+ catch(x){$('#eta').textContent='No se pudo calcular el recorrido (sin conexión). Usá el botón Navegar.';map.fitBounds([[POS.lat,POS.lng],[tgt.lat,tgt.lng]],{padding:[30,30]})}}
+$('#sc').onchange=()=>{S.ch=$('#sc').value;sv();renderCho()};$('#fd').onchange=renderCho;$('#fl').onchange=renderAll;
+
+/* ---- ajustes y datos ---- */
+function loadAj(){$('#ac').value=S.c.join(', ');$('#cap').value=S.cap;$('#vent').value=S.vent;$('#dist').value=S.dist;$('#pin').value=S.pin||''}
+$('#sa').onclick=()=>{S.c=$('#ac').value.split(',').map(x=>x.trim()).filter(Boolean);if(!S.c.length)S.c=['Chofer 1'];
+ S.pin=$('#pin').value;S.cap=+$('#cap').value||1;S.vent=+$('#vent').value||0;S.dist=+$('#dist').value||0;sv();renderAll();alert('Ajustes guardados')};
+$('#ex').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({...S,pin:''})],{type:'application/json'}));a.download='traslados-'+hoy()+'.json';a.click()};
+$('#im').onclick=()=>$('#fi').click();
+$('#fi').onchange=async ev=>{try{const k=S.pin;S=Object.assign(S,JSON.parse(await ev.target.files[0].text()));S.pin=k;sv();loadAj();renderAll();renderLg();alert('Datos importados')}catch(x){alert('El archivo no es válido')}};
+$('#rs').onclick=()=>{if(confirm('¿Marcar todos los pasos como pendientes?')){S.hecho={};sv();alert('Listo')}};
+const fake=d=>{const h=[...d].reduce((a,c)=>(a*31+c.charCodeAt(0))>>>0,7);return{lat:-32.93-(h%400)/1e4,lng:-60.62-((h>>>8)%600)/1e4}};
+$('#te').checked=!!S.test;$('#te').onchange=()=>{S.test=$('#te').checked;sv()};
+$('#dm').onclick=()=>{const f=hoy(),c=S.c[0],P=(d,la,ln)=>({d,lat:la,lng:ln});
+ S.p=S.p.filter(p=>!p.demo).concat([
+ {id:9001,demo:1,n:'María Gómez',h:'09:00',f,t:'entrada',c,no:'Silla de ruedas',pts:[P('Oroño 1500',-32.951,-60.654),P('Hospital Centenario',-32.9575,-60.6636)]},
+ {id:9002,demo:1,n:'Carlos Ruiz',h:'09:15',f,t:'entrada',c,no:'',pts:[P('Mendoza 1800',-32.948,-60.652),P('Hospital Centenario',-32.9575,-60.6636)]},
+ {id:9003,demo:1,n:'Ana Sosa',h:'10:30',f,t:'entrada',c,no:'Timbre 2B',pts:[P('Av. Pellegrini 2500',-32.97,-60.64),P('Sanatorio Británico',-32.9444,-60.6395),P('Hospital Centenario',-32.9575,-60.6636)]},
+ {id:9004,demo:1,n:'Juan Pérez',h:'12:00',f,t:'salida',c,no:'',pts:[P('Hospital Centenario',-32.9575,-60.6636),P('Alberdi 900',-32.93,-60.67)]}]);
+ S.hecho={};sv();renderAll();alert('Ejemplo cargado en el día de hoy')};
+let ROL=null;try{ROL=JSON.parse(localStorage.getItem('traslados_rol'))}catch(x){}
+function setRol(r){ROL=r;try{r?localStorage.setItem('traslados_rol',JSON.stringify(r)):localStorage.removeItem('traslados_rol')}catch(x){}
+ document.body.className=!r?'lg':r.a?'adm':'drv';
+ if(!r){renderLg();return}
+ if(r.a)show('pac');else{S.ch=r.c;$('#hn').textContent='Hola, '+r.c;show('cho')}}
+function renderLg(){$('#lc').innerHTML=S.c.map((c,i)=>`<button class="b" style="width:100%;margin:4px 0;font-size:22px;padding:18px" data-i="${i}">${e(c)}</button>`).join('');
+ $('#lc').querySelectorAll('button').forEach(b=>b.onclick=()=>setRol({c:S.c[b.dataset.i]}))}
+$('#la').onclick=()=>{if(S.pin&&prompt('Clave de administrador')!==S.pin){alert('Clave incorrecta');return}setRol({a:1})};
+$('#sal').onclick=()=>setRol(null);$('#li').onclick=()=>$('#fi').click();
+$('#f').value=$('#fl').value=hoy();resetForm();loadAj();renderAll();
+setRol(ROL&&(ROL.a||S.c.includes(ROL.c))?ROL:null);
+</script></body></html>
